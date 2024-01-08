@@ -8,7 +8,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 static K_SEM_DEFINE(bt_init_ok, 1, 1);
 
-static uint8_t button_value = 0;
+static uint16_t sensor_value = 0;
 enum bt_button_notifications_enabled notifications_enabled;
 static struct bt_remote_service_cb remote_callbacks;
 
@@ -71,14 +71,14 @@ void on_sent(struct bt_conn *conn, void *user_data)
 static ssize_t read_button_characteristic_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 			 void *buf, uint16_t len, uint16_t offset)
 {
-	return bt_gatt_attr_read(conn, attr, buf, len, offset, &button_value,
-				 sizeof(button_value));
+	return bt_gatt_attr_read(conn, attr, buf, len, offset, &sensor_value,
+				 sizeof(sensor_value));
 }
 
 void button_chrc_ccc_cfg_changed(const struct bt_gatt_attr *attr, uint16_t value)
 {
     bool notif_enabled = (value == BT_GATT_CCC_NOTIFY);
-    LOG_INF("Notifications %s", notif_enabled? "enabled":"disabled");
+   // LOG_INF("Notifications %s", notif_enabled? "enabled":"disabled");
 
     notifications_enabled = notif_enabled? BT_BUTTON_NOTIFICATIONS_ENABLED:BT_BUTTON_NOTIFICATIONS_DISABLED;
     if (remote_callbacks.notif_changed) {
@@ -113,9 +113,9 @@ int send_button_notification(struct bt_conn *conn, uint8_t value, uint16_t lengt
     return err;
 }
 
-void set_button_status(uint8_t btn_value)
+void set_sensor(uint16_t sens_value)
 {
-    button_value = btn_value;
+    sensor_value = sens_value;
 }
 
 int bluetooth_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote_cb)
@@ -129,6 +129,7 @@ int bluetooth_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote
 
     bt_conn_cb_register(bt_cb);
     remote_callbacks.notif_changed = remote_cb->notif_changed;
+    remote_callbacks.data_received = remote_cb->data_received;
 
     err = bt_enable(bt_ready);
     if (err) {
