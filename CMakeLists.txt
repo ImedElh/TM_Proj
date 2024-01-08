@@ -6,3 +6,11 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(FirstBleProject)
 
 target_sources(app PRIVATE src/main.c)
+
+# Custom files and folders
+
+target_sources(app PRIVATE
+    src/remote_service/remote.c
+)
+
+zephyr_library_include_directories(src/remote_service)
