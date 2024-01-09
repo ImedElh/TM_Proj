@@ -6,16 +6,11 @@
 
 #include <zephyr/types.h>
 #include <zephyr/logging/log.h>
-
-
 #include "remote.h"
 
 #define LOG_MODULE_NAME app
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
-#define RUN_STATUS_LED DK_LED1
-#define CONN_STATUS_LED DK_LED2
-#define RUN_LED_BLINK_INTERVAL 1000
 
 static struct bt_conn *current_conn;
 static bool isNotifEnabled = false;
@@ -80,7 +75,6 @@ void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t 
 
 }
 
-
 void simulate_sensor(void){
 	static uint16_t sensor_value = 0;
 	k_msleep(1000);
@@ -99,7 +93,6 @@ void simulate_sensor(void){
 		}
 }
 
-/* Configurations */
 
 
 /* main */
@@ -119,6 +112,6 @@ void main(void)
 	LOG_INF("Running...");
 	for (;;) {
 		simulate_sensor();
-		k_sleep(K_MSEC(RUN_LED_BLINK_INTERVAL));
+		k_sleep(K_MSEC(1000));
 	}
 }
