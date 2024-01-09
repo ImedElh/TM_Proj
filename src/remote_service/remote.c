@@ -39,7 +39,8 @@ BT_GATT_PRIMARY_SERVICE(BT_UUID_REMOTE_SERVICE),
     BT_GATT_CCC(button_chrc_ccc_cfg_changed, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
     BT_GATT_CHARACTERISTIC(BT_UUID_REMOTE_MESSAGE_CHRC,
                     BT_GATT_CHRC_WRITE_WITHOUT_RESP,
-                    BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                   // BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,
+                     BT_GATT_PERM_READ | BT_GATT_PERM_WRITE_ENCRYPT,
                     NULL, on_write, NULL),
 );
 
