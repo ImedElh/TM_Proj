@@ -25,10 +25,12 @@ void on_connected(struct bt_conn *conn, uint8_t err);
 void on_disconnected(struct bt_conn *conn, uint8_t reason);
 void on_notif_changed(enum bt_button_notifications_enabled status);
 void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t len);
+static void on_security_changed(struct bt_conn *conn, bt_security_t level,enum bt_security_err err);
 
 struct bt_conn_cb bluetooth_callbacks = {
 	.connected 		= on_connected,
 	.disconnected 	= on_disconnected,
+	.security_changed = on_security_changed,
 };
 struct bt_remote_service_cb remote_callbacks = {
 	.notif_changed = on_notif_changed,
@@ -36,6 +38,21 @@ struct bt_remote_service_cb remote_callbacks = {
 };
 
 /* Callbacks */
+
+static void on_security_changed(struct bt_conn *conn, bt_security_t level,enum bt_security_err err)
+{
+	char addr[BT_ADDR_LE_STR_LEN];
+
+	bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
+
+	if (!err) {
+		LOG_INF("Security changed: %s level %u\n", addr, level);
+	} else {
+		LOG_INF("Security failed: %s level %u err %d\n", addr, level,
+			err);
+	}
+}
+
 
 void on_connected(struct bt_conn *conn, uint8_t err)
 {
