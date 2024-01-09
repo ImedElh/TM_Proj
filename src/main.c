@@ -12,6 +12,11 @@
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 
+static void update_timer_handler(struct k_timer *timer_id);
+
+K_TIMER_DEFINE(update_timer, update_timer_handler, NULL);
+
+
 static struct bt_conn *current_conn;
 static bool isNotifEnabled = false;
 
@@ -77,12 +82,11 @@ void on_data_received(struct bt_conn *conn, const uint8_t *const data, uint16_t 
 
 void simulate_sensor(void){
 	static uint16_t sensor_value = 0;
-	k_msleep(1000);
 	sensor_value++;
 	if(sensor_value == 1000){
 	  sensor_value = 0;	
 	}
-	  int err;
+	  int err = 0;
 
 		set_sensor(sensor_value);
 		if(isNotifEnabled) {
@@ -93,6 +97,11 @@ void simulate_sensor(void){
 		}
 }
 
+static void update_timer_handler(struct k_timer *timer_id)
+{
+    //LOG_INF("Timer expired in handler");
+	simulate_sensor();
+}
 
 
 /* main */
@@ -100,7 +109,6 @@ void simulate_sensor(void){
 void main(void)
 {
 	int err;
-	int blink_status = 0;
     printk("Starting Bluetooth Peripheral LBS example\n");
 	LOG_INF("Hello World! %s\n", CONFIG_BOARD);
 
@@ -108,10 +116,11 @@ void main(void)
 	if (err) {
 		LOG_ERR("bt_enable returned %d", err);
 	}
-
 	LOG_INF("Running...");
+	// Start sensor simulator timer
+	k_timer_start(&update_timer, K_SECONDS(1),K_SECONDS(1));
 	for (;;) {
-		simulate_sensor();
+		
 		k_sleep(K_MSEC(1000));
 	}
 }
