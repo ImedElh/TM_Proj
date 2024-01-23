@@ -66,7 +66,7 @@ static ssize_t on_write(struct bt_conn *conn,
 void on_sent(struct bt_conn *conn, void *user_data)
 {
     ARG_UNUSED(user_data);
-    LOG_INF("Notification sent on connection %p", (void *)conn);
+   // LOG_INF("Notification sent on connection %p", (void *)conn);
 }
 
 static ssize_t read_button_characteristic_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
