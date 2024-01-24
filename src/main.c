@@ -7,10 +7,18 @@
 #include <zephyr/types.h>
 #include <zephyr/logging/log.h>
 #include "remote.h"
+// I2c driver
+#include <zephyr/drivers/i2c.h>
+// vl53l1 sensor headers
+#include "vl53l1_platform.h"
+#include "vl53l1_api.h"
+
+#define I2C0_NODE DT_NODELABEL(vl53l1x)
 
 #define LOG_MODULE_NAME app
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
+static const struct i2c_dt_spec dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
 
 static void update_timer_handler(struct k_timer *timer_id);
 
@@ -149,6 +157,21 @@ void main(void)
 	int err;
     printk("Starting Bluetooth Peripheral LBS example\n");
 	LOG_INF("Hello World! %s\n", CONFIG_BOARD);
+
+   // I2C communication
+	if (!device_is_ready(dev_i2c.bus)) {
+	printk("I2C bus %s is not ready!\n\r",dev_i2c.bus->name);
+	return;
+}
+#ifdef LOW_LEVEL_I2C // LOW level I2C transaction
+   uint8_t reading[3] = {0} ;
+   uint8_t sensor_regs[2] ={0x01,0x0F}; // register number
+   err = i2c_write_read_dt(&dev_i2c,&sensor_regs[0],2,&reading[0],3);
+   	if (err) {
+		LOG_ERR("Error I2C Comm %d", err);
+	}
+	#endif
+   //int status = VL53L1_RdByte(&dev_i2c, 0x010F, &byteData);
 
     // Enable bluetooth communication
     err = bluetooth_init(&bluetooth_callbacks, &remote_callbacks);
