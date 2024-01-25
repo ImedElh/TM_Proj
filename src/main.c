@@ -156,6 +156,11 @@ static void update_timer_handler(struct k_timer *timer_id)
 /* main */
 void main(void)
 {
+	VL53L1_Dev_t vl53l1Dev;
+	vl53l1Dev.i2c = &dev_i2c;
+	VL53L1_RangingMeasurementData_t  vl53l1RangMesData;
+	VL53L1_Error vl53l1Error;
+
 	int err;
     printk("Starting Bluetooth Peripheral LBS example\n");
 	LOG_INF("Hello World! %s\n", CONFIG_BOARD);
@@ -173,7 +178,37 @@ void main(void)
 		LOG_ERR("Error I2C Comm %d", err);
 	}
 #endif
-   //int status = VL53L1_RdByte(&dev_i2c, 0x010F, &byteData);
+// Function allows to ensure that the device is booted and ready.
+vl53l1Error = VL53L1_WaitDeviceBooted(&vl53l1Dev);
+// Function is called one time, and it performs the device initialization.
+ vl53l1Error = VL53L1_DataInit(&vl53l1Dev);
+ // Function allows to load device settings specific for a given use case.
+ vl53l1Error = VL53L1_StaticInit(&vl53l1Dev);
+// Timing budget is the time required by the sensor to perform one range measurement
+ vl53l1Error = VL53L1_SetMeasurementTimingBudgetMicroSeconds(&vl53l1Dev,100000); // minimum and maximum timing budgets are [20ms, 1000ms]
+// When a ranging completes, the device waits for the end of the programmed inter-measurement period before resuming the next ranging
+vl53l1Error = VL53L1_SetInterMeasurementPeriodMilliSeconds(&vl53l1Dev,1000 ); // sets the inter-measurement period to 1s.
+ 
+ vl53l1Error = VL53L1_SetDistanceMode(&vl53l1Dev,VL53L1_DISTANCEMODE_LONG); // short (up to 1.3), medium (up to 3 m), long (up to 4m)
+ // Function must be called to start a measurement
+ vl53l1Error = VL53L1_StartMeasurement(&vl53l1Dev);
+ // This is a blocking function
+ vl53l1Error = VL53L1_WaitMeasurementDataReady(&vl53l1Dev);
+ // Get ranging data
+ vl53l1Error = VL53L1_GetRangingMeasurementData(&vl53l1Dev, &vl53l1RangMesData);
+ VL53L1_ClearInterruptAndStartMeasurement(&vl53l1Dev);
+
+ while (1)
+ {
+	 // This is a blocking function
+ vl53l1Error = VL53L1_WaitMeasurementDataReady(&vl53l1Dev);
+ // Get ranging data
+ vl53l1Error = VL53L1_GetRangingMeasurementData(&vl53l1Dev, &vl53l1RangMesData);
+ 	LOG_INF("Measurement in mm = %d\n", vl53l1RangMesData.RangeMilliMeter);
+ VL53L1_ClearInterruptAndStartMeasurement(&vl53l1Dev);
+ k_sleep(K_MSEC(1000));
+
+ }
 
 #ifdef BLE_BONDING
 	settings_load(); //After resetting the peripheral, so that previous bonds can be restored.
