@@ -170,10 +170,14 @@ void main(void)
    	if (err) {
 		LOG_ERR("Error I2C Comm %d", err);
 	}
-	#endif
+#endif
    //int status = VL53L1_RdByte(&dev_i2c, 0x010F, &byteData);
 
-    // Enable bluetooth communication
+#ifdef BLE_BONDING
+	settings_load(); //After resetting the peripheral, so that previous bonds can be restored.
+	bt_unpair(); //should be called to erase all bonded devices
+#endif
+	// Enable bluetooth communication
     err = bluetooth_init(&bluetooth_callbacks, &remote_callbacks);
     if (err) {
         LOG_ERR("bt_enable returned %d", err);
