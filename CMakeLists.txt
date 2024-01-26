@@ -11,6 +11,8 @@ target_sources(app PRIVATE src/main.c)
 
 target_sources(app PRIVATE
     src/remote_service/remote.c
+    src/vl53l1/vl53l1.c
 )
 
 zephyr_library_include_directories(src/remote_service)
+zephyr_library_include_directories(src/vl53l1)
