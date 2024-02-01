@@ -17,9 +17,13 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 // vl53l1x integrated sensor in overlay file
 #define I2C0_NODE DT_NODELABEL(vl53l1x)
-
+// Multithreading routines
 static void threadSensorMeasurement(void);
 static void thread1(void);
+// Timer routines
+static void sensor_measurement_handler(struct k_timer *timer_id);
+// Create measurement timer
+K_TIMER_DEFINE(sensor_meas_timer, sensor_measurement_handler, NULL);
 
 static const struct i2c_dt_spec _dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
 
@@ -57,7 +61,10 @@ static void threadSensorMeasurement(void)
 	printk("I2C bus %s is not ready!\n\r",_dev_i2c.bus->name);
 	return;
    }
-   init_vl53l1_sensor();
+   	// Start vl53l1 sensor measurement timer
+	k_timer_start(&sensor_meas_timer, K_SECONDS(5),K_SECONDS(1 * 30));
+    
+    init_vl53l1_sensor();
 	while (1) {
 
            // This is a blocking function
@@ -74,8 +81,22 @@ static void thread1(void)
 {
 	while (1) {
        LOG_INF("Hello, I am thread1\n");
-	   k_msleep(2000);
+	   k_msleep(10000);
 	}
+}
+
+static void sensor_measurement_handler(struct k_timer *timer_id)
+{
+    VL53L1_Error vl53l1Error;
+    
+    // This is a blocking function
+   // vl53l1Error = VL53L1_WaitMeasurementDataReady(&_vl53l1Dev);
+    // Get ranging data
+   // vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
+    LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
+  //  VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
+    //LOG_INF("Hello, sensor_measurement_handler\n");
+
 }
 
 // Create 2 threads
