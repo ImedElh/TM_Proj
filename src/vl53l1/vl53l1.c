@@ -2,6 +2,8 @@
 // vl53l1 sensor headers
 #include "vl53l1_platform.h"
 #include "vl53l1_api.h"
+// GPIO driver
+#include <zephyr/drivers/gpio.h>
 // I2c driver
 #include <zephyr/drivers/i2c.h>
 
@@ -15,6 +17,12 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define THREAD1_PRIORITY        7
 #define THREAD1_STACKSIZE       512
 
+
+K_SEM_DEFINE(instance_monitor_sem, 10, 10);
+
+
+#define VL53L_GPIO DT_NODELABEL(vl53_int)
+
 // vl53l1x integrated sensor in overlay file
 #define I2C0_NODE DT_NODELABEL(vl53l1x)
 // Multithreading routines
@@ -26,6 +34,7 @@ static void sensor_measurement_handler(struct k_timer *timer_id);
 K_TIMER_DEFINE(sensor_meas_timer, sensor_measurement_handler, NULL);
 
 static const struct i2c_dt_spec _dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
+static const struct gpio_dt_spec vl53_gpio = GPIO_DT_SPEC_GET(VL53L_GPIO, gpios);
 
 static VL53L1_Dev_t _vl53l1Dev;
 static VL53L1_RangingMeasurementData_t  _vl53l1RangMesData;
@@ -50,10 +59,44 @@ static void init_vl53l1_sensor(void)
     vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
 }
 
+/* STEP 4 - Define the callback function */
+void vl53_measured_cb(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+   // VL53L1_Error vl53l1Error;
+    //gpio_pin_toggle_dt(&led);
+  // vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
+     
+    //LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
+    //VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
+    k_sem_give(&instance_monitor_sem);
+
+}
+/* STEP 5 - Define a variable of type static struct gpio_callback */
+static struct gpio_callback vl53_cb_data;
+
 
 static void threadSensorMeasurement(void)
 {
     VL53L1_Error vl53l1Error;
+    int ret;
+
+
+	if (!device_is_ready(vl53_gpio.port)) {
+		return -1;
+	}
+    ret = gpio_pin_configure_dt(&vl53_gpio, GPIO_INPUT);
+	if (ret < 0) {
+		return -1;
+	}
+	/* STEP 3 - Configure the interrupt on the button's pin */
+	ret = gpio_pin_interrupt_configure_dt(&vl53_gpio, GPIO_INT_EDGE_TO_ACTIVE );
+
+	/* STEP 6 - Initialize the static struct gpio_callback variable   */
+    gpio_init_callback(&vl53_cb_data, vl53_measured_cb, BIT(vl53_gpio.pin)); 	
+	
+	/* STEP 7 - Add the callback function by calling gpio_add_callback()   */
+	gpio_add_callback(vl53_gpio.port, &vl53_cb_data);
+
 
     _vl53l1Dev.i2c = &_dev_i2c;
    // I2C communication
@@ -66,14 +109,20 @@ static void threadSensorMeasurement(void)
     
     init_vl53l1_sensor();
 	while (1) {
-
+#ifdef SKIP
            // This is a blocking function
             vl53l1Error = VL53L1_WaitMeasurementDataReady(&_vl53l1Dev);
             // Get ranging data
             vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
             LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
             VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
-            k_msleep(1000);
+ #endif
+          //  k_msleep(1000);
+          	k_sem_take(&instance_monitor_sem, K_FOREVER);
+            vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
+     
+       LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
+       VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
 	}
 }
 
