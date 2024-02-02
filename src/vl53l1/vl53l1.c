@@ -17,10 +17,11 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define THREAD1_PRIORITY        7
 #define THREAD1_STACKSIZE       512
 
+// A binary semaphore for vl51 measurement monitor
+K_SEM_DEFINE(meas_monitor_sem, 1, 1);
 
-K_SEM_DEFINE(instance_monitor_sem, 10, 10);
 
-
+// vl53l1x gpio interrupt pin 
 #define VL53L_GPIO DT_NODELABEL(vl53_int)
 
 // vl53l1x integrated sensor in overlay file
@@ -32,7 +33,7 @@ static void thread1(void);
 static void sensor_measurement_handler(struct k_timer *timer_id);
 // Create measurement timer
 K_TIMER_DEFINE(sensor_meas_timer, sensor_measurement_handler, NULL);
-
+// I2C and GPIO devices
 static const struct i2c_dt_spec _dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
 static const struct gpio_dt_spec vl53_gpio = GPIO_DT_SPEC_GET(VL53L_GPIO, gpios);
 
@@ -53,7 +54,6 @@ static void init_vl53l1_sensor(void)
     vl53l1Error = VL53L1_SetMeasurementTimingBudgetMicroSeconds(&_vl53l1Dev,100000); // minimum and maximum timing budgets are [20ms, 1000ms]
     // When a ranging completes, the device waits for the end of the programmed inter-measurement period before resuming the next ranging
     vl53l1Error = VL53L1_SetInterMeasurementPeriodMilliSeconds(&_vl53l1Dev,1000 ); // sets the inter-measurement period to 1s.
-
     vl53l1Error = VL53L1_SetDistanceMode(&_vl53l1Dev,VL53L1_DISTANCEMODE_LONG); // short (up to 1.3), medium (up to 3 m), long (up to 4m)
     // Function must be called to start a measurement
     vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
@@ -62,14 +62,7 @@ static void init_vl53l1_sensor(void)
 /* STEP 4 - Define the callback function */
 void vl53_measured_cb(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
 {
-   // VL53L1_Error vl53l1Error;
-    //gpio_pin_toggle_dt(&led);
-  // vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
-     
-    //LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
-    //VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
-    k_sem_give(&instance_monitor_sem);
-
+    k_sem_give(&meas_monitor_sem);
 }
 /* STEP 5 - Define a variable of type static struct gpio_callback */
 static struct gpio_callback vl53_cb_data;
@@ -109,20 +102,11 @@ static void threadSensorMeasurement(void)
     
     init_vl53l1_sensor();
 	while (1) {
-#ifdef SKIP
-           // This is a blocking function
-            vl53l1Error = VL53L1_WaitMeasurementDataReady(&_vl53l1Dev);
-            // Get ranging data
+
+          	k_sem_take(&meas_monitor_sem, K_FOREVER);
             vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
             LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
             VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
- #endif
-          //  k_msleep(1000);
-          	k_sem_take(&instance_monitor_sem, K_FOREVER);
-            vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
-     
-       LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
-       VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
 	}
 }
 
