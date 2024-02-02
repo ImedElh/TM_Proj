@@ -106,7 +106,10 @@ static void threadSensorMeasurement(void)
           	k_sem_take(&meas_monitor_sem, K_FOREVER);
             vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
             LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
+            // Clear interrupt flag for later measurements
             VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
+            // Stop measurements
+            VL53L1_StopMeasurement(&_vl53l1Dev);
 	}
 }
 
@@ -120,16 +123,9 @@ static void thread1(void)
 
 static void sensor_measurement_handler(struct k_timer *timer_id)
 {
-    VL53L1_Error vl53l1Error;
+    //VL53L1_Error vl53l1Error;
     
-    // This is a blocking function
-   // vl53l1Error = VL53L1_WaitMeasurementDataReady(&_vl53l1Dev);
-    // Get ranging data
-   // vl53l1Error = VL53L1_GetRangingMeasurementData(&_vl53l1Dev, &_vl53l1RangMesData);
-    LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
-  //  VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
-    //LOG_INF("Hello, sensor_measurement_handler\n");
-
+   // vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
 }
 
 // Create 2 threads
