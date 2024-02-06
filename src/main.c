@@ -6,6 +6,8 @@
 
 #include <zephyr/types.h>
 #include <zephyr/logging/log.h>
+// GPIO driver header
+#include <zephyr/drivers/gpio.h>
 #include "remote.h"
 // Bonding headers
 //#include <zephyr/settings/settings.h>
@@ -13,6 +15,11 @@
 //  Logging module registration
 #define LOG_MODULE_NAME app
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
+
+// Get led0 debugging led 
+#define DEBUG_LED DT_NODELABEL(led0)
+static const struct gpio_dt_spec debugLed = GPIO_DT_SPEC_GET(DEBUG_LED, gpios);
+
 
 static void update_timer_handler(struct k_timer *timer_id);
 
@@ -150,9 +157,20 @@ static void update_timer_handler(struct k_timer *timer_id)
 /* main */
 void main(void)
 {
-	int err;
+	int err, ret;
     printk("Starting Bluetooth Peripheral LBS example\n");
 	LOG_INF("Hello World! %s\n", CONFIG_BOARD);
+
+	if (!device_is_ready(debugLed.port)) {
+	  return -1;
+	}
+	
+	ret = gpio_pin_configure_dt(&debugLed, GPIO_OUTPUT_ACTIVE);
+	if (ret < 0) {
+		return -1;
+	}
+   // Active the debug led
+   // gpio_pin_set_dt(&debugLed,1);
 
 #ifdef LOW_LEVEL_I2C // LOW level I2C transaction
    uint8_t reading[3] = {0} ;
