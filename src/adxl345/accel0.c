@@ -13,10 +13,6 @@
 #include <zephyr/sys/util_macro.h>
 #include <zephyr/kernel.h>
 
-// Multithreading definition
-#define THREAD2_PRIORITY        7
-#define THREAD2_STACKSIZE       512
-
 #define ACCEL_ALIAS(i) DT_ALIAS(_CONCAT(accel, i))
 #define ACCELEROMETER_DEVICE(i, _)                                                                 \
 	IF_ENABLED(DT_NODE_EXISTS(ACCEL_ALIAS(i)), (DEVICE_DT_GET(ACCEL_ALIAS(i)),))
@@ -56,7 +52,7 @@ static int print_accels(const struct device *dev)
 	return 0;
 }
 
-void thread2(void)
+void getAcc0Data(void)
 {
 	int ret;
 
@@ -77,30 +73,3 @@ void thread2(void)
 		k_msleep(1000);
 	}
 }
-#ifdef SKIP
-static void thread2(void)
-{
-	int ret;
-
-	for (size_t i = 0; i < ARRAY_SIZE(sensors); i++) {
-		if (!device_is_ready(sensors[i])) {
-			printk("sensor: device %s not ready.\n", sensors[i]->name);
-			return 0;
-		}
-	}
-
-	while (1) {
-		for (size_t i = 0; i < ARRAY_SIZE(sensors); i++) {
-			ret = print_accels(sensors[i]);
-			if (ret < 0) {
-				return 0;
-			}
-		}
-		k_msleep(1000);
-	}
-}
-
-
-K_THREAD_DEFINE(thread2_id, THREAD2_STACKSIZE, thread2, NULL, NULL, NULL,
-		THREAD2_PRIORITY, 0, 0);
-#endif
