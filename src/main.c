@@ -200,6 +200,7 @@ void main(void)
 	LOG_INF("Running...");
 	// Start sensor simulator timer
 	k_timer_start(&update_timer, K_SECONDS(1),K_SECONDS(1));
+	getAcc0Data();
 	for (;;) {
 		LOG_INF("Hello, I am main\n");
 		k_sleep(K_MSEC(1000));
