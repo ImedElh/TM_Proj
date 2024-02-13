@@ -64,8 +64,9 @@ static const struct gpio_dt_spec vl53_gpio = GPIO_DT_SPEC_GET(VL53L_GPIO, gpios)
 typedef struct adv_mfg_data {
 	uint16_t   company_code;	    /* Company Identifier Code. */
 	int16_t    RangeMilliMeter;     /* VL53L1 range in mm*/
+    uint32_t   temperature;
 } adv_mfg_data_type;
-static adv_mfg_data_type adv_mfg_data = {COMPANY_ID_CODE,0x00};
+static adv_mfg_data_type adv_mfg_data = {COMPANY_ID_CODE,0x00,0x00};
 // Advertised data
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
@@ -112,7 +113,7 @@ static void threadSensorMeasurement(void)
 {
     VL53L1_Error vl53l1Error;
     int ret;
-
+    temperatureFloat_t  floatTemperature;
 	if (!device_is_ready(vl53_gpio.port)) {
 		return -1;
 	}
@@ -155,6 +156,11 @@ static void threadSensorMeasurement(void)
             VL53L1_StopMeasurement(&_vl53l1Dev);
             // Update the adv meas data
             adv_mfg_data.RangeMilliMeter = _vl53l1RangMesData.RangeMilliMeter;
+            // Simulate a temperature sensor
+            floatTemperature.f = 21.5464;
+            memcpy(&adv_mfg_data.temperature,&floatTemperature.byte[0],sizeof(uint32_t));
+            LOG_INF("Temp = %02x, %02x, %02x, %02x\n",floatTemperature.byte[3],floatTemperature.byte[2],floatTemperature.byte[1],floatTemperature.byte[0]);
+            LOG_INF("Temp = %04x\n",adv_mfg_data.temperature);
             // Update vl53l1 range in mm advertised data
             bt_le_adv_update_data(ad, ARRAY_SIZE(ad),sd, ARRAY_SIZE(sd));
 	}
