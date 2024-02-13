@@ -43,9 +43,13 @@ K_SEM_DEFINE(meas_monitor_sem, 1, 1);
 #define DEVICE_NAME CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME)-1)
 
+//Sensor Measurement Timing
+#define VL53_MEAS_TIMING_SEC          120 // 2 minutes
+
 // Multithreading routines
 static void threadSensorMeasurement(void);
 static void thread1(void);
+// workque routine
 static void offload_function(struct k_work *work_tem);
 // Timer routines
 static void sensor_measurement_handler(struct k_timer *timer_id);
@@ -109,7 +113,6 @@ static void threadSensorMeasurement(void)
     VL53L1_Error vl53l1Error;
     int ret;
 
-
 	if (!device_is_ready(vl53_gpio.port)) {
 		return -1;
 	}
@@ -131,7 +134,7 @@ static void threadSensorMeasurement(void)
 	return;
    }
    	// Start vl53l1 sensor measurement timer
-	k_timer_start(&sensor_meas_timer, K_SECONDS(5),K_SECONDS(1 * 30));
+	k_timer_start(&sensor_meas_timer, K_SECONDS(5),K_SECONDS(1 * VL53_MEAS_TIMING_SEC));
     
     init_vl53l1_sensor();
 
@@ -148,8 +151,9 @@ static void threadSensorMeasurement(void)
             LOG_INF("Measurement in mm = %d\n", _vl53l1RangMesData.RangeMilliMeter);
             // Clear interrupt flag for later measurements
             VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
-            // Stop measurements
+            // Stop measurements (to save power or measurment will be done every 1 sec)
             VL53L1_StopMeasurement(&_vl53l1Dev);
+            // Update the adv meas data
             adv_mfg_data.RangeMilliMeter = _vl53l1RangMesData.RangeMilliMeter;
             // Update vl53l1 range in mm advertised data
             bt_le_adv_update_data(ad, ARRAY_SIZE(ad),sd, ARRAY_SIZE(sd));
@@ -174,12 +178,7 @@ static void thread1(void)
 
 static void sensor_measurement_handler(struct k_timer *timer_id)
 {
-    /*VL53L1_Error vl53l1Error;
-    vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
-    if(vl53l1Error != VL53L1_ERROR_NONE)
-    {
-      LOG_INF("Measurement not started\n");
-    }*/
+    // Submit the work queue here to avoid blocking the ISR via a semaphore inside VL53L1_StartMeasurement() routine
     k_work_submit_to_queue(&offload_work_q, &my_work.work);
 }
 
