@@ -168,7 +168,7 @@ static void thread1(void)
     err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
 	while (1) {
        LOG_INF("Hello, I am thread1\n");
-	   k_msleep(10000);
+	   k_msleep(30000);
 	}
 }
 

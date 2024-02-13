@@ -203,6 +203,6 @@ void main(void)
 	getAcc0Data();
 	for (;;) {
 		LOG_INF("Hello, I am main\n");
-		k_sleep(K_MSEC(1000));
+		k_sleep(K_MSEC(30000));
 	}
 }
