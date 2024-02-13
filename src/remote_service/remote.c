@@ -132,7 +132,7 @@ int bluetooth_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote
     bt_conn_cb_register(bt_cb);
     remote_callbacks.notif_changed = remote_cb->notif_changed;
     remote_callbacks.data_received = remote_cb->data_received;
-
+#ifdef START_CONNECT_ADV
     err = bt_enable(bt_ready);
     if (err) {
         LOG_ERR("bt_enable returned %d", err);
@@ -146,8 +146,7 @@ int bluetooth_init(struct bt_conn_cb *bt_cb, struct bt_remote_service_cb *remote
         LOG_ERR("Couldn't start advertising (err = %d)", err);
         return err;
     }
-
-
+#endif
 
     return err;
 }
