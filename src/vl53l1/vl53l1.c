@@ -7,6 +7,9 @@
 // I2c driver
 #include <zephyr/drivers/i2c.h>
 
+#include <zephyr/bluetooth/bluetooth.h>
+#include <zephyr/bluetooth/gap.h>
+
 // Register Log module
 #define LOG_MODULE_NAME vl53l1
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
@@ -15,17 +18,18 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define THREAD_SENSOR_PRIORITY  7 
 #define THREAD_SENSOR_STACKSIZE 1024
 #define THREAD1_PRIORITY        7
-#define THREAD1_STACKSIZE       512
-
+#define THREAD1_STACKSIZE       2048
 // A binary semaphore for vl51 measurement monitor
 K_SEM_DEFINE(meas_monitor_sem, 1, 1);
-
-
 // vl53l1x gpio interrupt pin 
 #define VL53L_GPIO DT_NODELABEL(vl53_int)
-
 // vl53l1x integrated sensor in overlay file
 #define I2C0_NODE DT_NODELABEL(vl53l1x)
+
+#define COMPANY_ID_CODE            0x0059
+#define DEVICE_NAME CONFIG_BT_DEVICE_NAME
+#define DEVICE_NAME_LEN (sizeof(DEVICE_NAME)-1)
+
 // Multithreading routines
 static void threadSensorMeasurement(void);
 static void thread1(void);
@@ -36,6 +40,22 @@ K_TIMER_DEFINE(sensor_meas_timer, sensor_measurement_handler, NULL);
 // I2C and GPIO devices
 static const struct i2c_dt_spec _dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
 static const struct gpio_dt_spec vl53_gpio = GPIO_DT_SPEC_GET(VL53L_GPIO, gpios);
+
+
+typedef struct adv_mfg_data {
+	uint16_t   company_code;	    /* Company Identifier Code. */
+	int16_t    RangeMilliMeter;   /* VL53 range in mm*/
+} adv_mfg_data_type;
+static adv_mfg_data_type adv_mfg_data = {COMPANY_ID_CODE,0x00};
+static const struct bt_data ad[] = {
+    BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
+    BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
+    BT_DATA(BT_DATA_MANUFACTURER_DATA,(unsigned char *)&adv_mfg_data, sizeof(adv_mfg_data))
+};
+
+static const struct bt_data sd[] = {
+    //BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_REMOTE_SERV_VAL),
+};
 
 static VL53L1_Dev_t _vl53l1Dev;
 static VL53L1_RangingMeasurementData_t  _vl53l1RangMesData;
@@ -83,13 +103,10 @@ static void threadSensorMeasurement(void)
 	}
 	/* STEP 3 - Configure the interrupt on the button's pin */
 	ret = gpio_pin_interrupt_configure_dt(&vl53_gpio, GPIO_INT_EDGE_TO_ACTIVE );
-
 	/* STEP 6 - Initialize the static struct gpio_callback variable   */
     gpio_init_callback(&vl53_cb_data, vl53_measured_cb, BIT(vl53_gpio.pin)); 	
-	
 	/* STEP 7 - Add the callback function by calling gpio_add_callback()   */
 	gpio_add_callback(vl53_gpio.port, &vl53_cb_data);
-
 
     _vl53l1Dev.i2c = &_dev_i2c;
    // I2C communication
@@ -109,12 +126,23 @@ static void threadSensorMeasurement(void)
             // Clear interrupt flag for later measurements
             VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
             // Stop measurements
-            VL53L1_StopMeasurement(&_vl53l1Dev);
+           // VL53L1_StopMeasurement(&_vl53l1Dev);
+            adv_mfg_data.RangeMilliMeter = _vl53l1RangMesData.RangeMilliMeter;
+            bt_le_adv_update_data(ad, ARRAY_SIZE(ad),sd, ARRAY_SIZE(sd));
 	}
 }
 
 static void thread1(void)
 {
+    int err;
+    err = bt_enable(NULL);
+    if (err) {
+        LOG_ERR("Bluetooth init failed (err %d)\n", err);
+        return;
+    }
+    LOG_INF("Bluetooth initialized\n");
+    err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+ //   err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
 	while (1) {
        LOG_INF("Hello, I am thread1\n");
 	   k_msleep(10000);
