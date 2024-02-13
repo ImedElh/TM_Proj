@@ -15,17 +15,30 @@
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 // Multithreading definition
-#define THREAD_SENSOR_PRIORITY  7 
+#define THREAD_SENSOR_PRIORITY  3
 #define THREAD_SENSOR_STACKSIZE 1024
-#define THREAD1_PRIORITY        7
-#define THREAD1_STACKSIZE       2048
+#define THREAD1_PRIORITY        3
+#define THREAD1_STACKSIZE       1024
+#define WORQ_THREAD_STACK_SIZE  1024
+#define WORKQ_PRIORITY          4
+
+// Define stack area used by workqueue thread
+static K_THREAD_STACK_DEFINE(my_stack_area, WORQ_THREAD_STACK_SIZE);
+// Define queue structure
+static struct k_work_q offload_work_q = {0};
+/* STEP 7 - Create work_info structure and offload function */
+struct work_info {
+    struct k_work work;
+    char name[25];
+} my_work;
+
 // A binary semaphore for vl51 measurement monitor
 K_SEM_DEFINE(meas_monitor_sem, 1, 1);
 // vl53l1x gpio interrupt pin 
 #define VL53L_GPIO DT_NODELABEL(vl53_int)
 // vl53l1x integrated sensor in overlay file
 #define I2C0_NODE DT_NODELABEL(vl53l1x)
-
+// BLE macros
 #define COMPANY_ID_CODE            0x0059
 #define DEVICE_NAME CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME)-1)
@@ -33,6 +46,7 @@ K_SEM_DEFINE(meas_monitor_sem, 1, 1);
 // Multithreading routines
 static void threadSensorMeasurement(void);
 static void thread1(void);
+static void offload_function(struct k_work *work_tem);
 // Timer routines
 static void sensor_measurement_handler(struct k_timer *timer_id);
 // Create measurement timer
@@ -41,18 +55,20 @@ K_TIMER_DEFINE(sensor_meas_timer, sensor_measurement_handler, NULL);
 static const struct i2c_dt_spec _dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
 static const struct gpio_dt_spec vl53_gpio = GPIO_DT_SPEC_GET(VL53L_GPIO, gpios);
 
-
+// BLE static data
+// Specific data
 typedef struct adv_mfg_data {
 	uint16_t   company_code;	    /* Company Identifier Code. */
-	int16_t    RangeMilliMeter;   /* VL53 range in mm*/
+	int16_t    RangeMilliMeter;     /* VL53L1 range in mm*/
 } adv_mfg_data_type;
 static adv_mfg_data_type adv_mfg_data = {COMPANY_ID_CODE,0x00};
+// Advertised data
 static const struct bt_data ad[] = {
     BT_DATA_BYTES(BT_DATA_FLAGS, (BT_LE_AD_GENERAL | BT_LE_AD_NO_BREDR)),
     BT_DATA(BT_DATA_NAME_COMPLETE, DEVICE_NAME, DEVICE_NAME_LEN),
     BT_DATA(BT_DATA_MANUFACTURER_DATA,(unsigned char *)&adv_mfg_data, sizeof(adv_mfg_data))
 };
-
+// scan response data
 static const struct bt_data sd[] = {
     //BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_REMOTE_SERV_VAL),
 };
@@ -118,6 +134,13 @@ static void threadSensorMeasurement(void)
 	k_timer_start(&sensor_meas_timer, K_SECONDS(5),K_SECONDS(1 * 30));
     
     init_vl53l1_sensor();
+
+    /* initialize the work item and connect it to its handler function */ 
+	k_work_queue_start(&offload_work_q, my_stack_area,
+					K_THREAD_STACK_SIZEOF(my_stack_area), WORKQ_PRIORITY,
+					NULL);
+	strcpy(my_work.name, "TimerMeasIsr");
+	k_work_init(&my_work.work, offload_function);
 	while (1) {
 
           	k_sem_take(&meas_monitor_sem, K_FOREVER);
@@ -126,8 +149,9 @@ static void threadSensorMeasurement(void)
             // Clear interrupt flag for later measurements
             VL53L1_ClearInterruptAndStartMeasurement(&_vl53l1Dev);
             // Stop measurements
-           // VL53L1_StopMeasurement(&_vl53l1Dev);
+            VL53L1_StopMeasurement(&_vl53l1Dev);
             adv_mfg_data.RangeMilliMeter = _vl53l1RangMesData.RangeMilliMeter;
+            // Update vl53l1 range in mm advertised data
             bt_le_adv_update_data(ad, ARRAY_SIZE(ad),sd, ARRAY_SIZE(sd));
 	}
 }
@@ -142,7 +166,6 @@ static void thread1(void)
     }
     LOG_INF("Bluetooth initialized\n");
     err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
- //   err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), NULL, 0);
 	while (1) {
        LOG_INF("Hello, I am thread1\n");
 	   k_msleep(10000);
@@ -151,10 +174,27 @@ static void thread1(void)
 
 static void sensor_measurement_handler(struct k_timer *timer_id)
 {
-    //VL53L1_Error vl53l1Error;
-    
-   // vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
+    /*VL53L1_Error vl53l1Error;
+    vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
+    if(vl53l1Error != VL53L1_ERROR_NONE)
+    {
+      LOG_INF("Measurement not started\n");
+    }*/
+    k_work_submit_to_queue(&offload_work_q, &my_work.work);
 }
+
+
+static void offload_function(struct k_work *work_tem)
+{
+    VL53L1_Error vl53l1Error;
+    vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
+    if(vl53l1Error != VL53L1_ERROR_NONE)
+    {
+      LOG_INF("Measurement not started\n");
+    }
+    LOG_INF("Measurement Started\n");
+}
+
 
 // Create 2 threads
 K_THREAD_DEFINE(threadSensorMeas_id, THREAD_SENSOR_STACKSIZE, threadSensorMeasurement, NULL, NULL, NULL,
