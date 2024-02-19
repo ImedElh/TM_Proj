@@ -202,12 +202,15 @@ static void sensor_measurement_handler(struct k_timer *timer_id)
 static void offload_function(struct k_work *work_tem)
 {
     VL53L1_Error vl53l1Error;
+    int err;
     vl53l1Error = VL53L1_StartMeasurement(&_vl53l1Dev);
     if(vl53l1Error != VL53L1_ERROR_NONE)
     {
       LOG_INF("Measurement not started\n");
     }
     LOG_INF("Measurement Started\n");
+    LOG_INF("Adv Started again\n");
+    err = bt_le_adv_start(adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd)); 
 }
 
 
