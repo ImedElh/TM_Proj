@@ -61,6 +61,12 @@ static const struct i2c_dt_spec _dev_i2c = I2C_DT_SPEC_GET(I2C0_NODE);
 static const struct gpio_dt_spec vl53_gpio = GPIO_DT_SPEC_GET(VL53L_GPIO, gpios);
 
 // BLE static data
+/* STEP 1 - Create an LE Advertising Parameters variable */
+static struct bt_le_adv_param *adv_param =
+	BT_LE_ADV_PARAM(BT_LE_ADV_OPT_NONE, /* No options specified*/
+			800, /* Min Advertising Interval 500ms (800*0.625ms) */
+			801, /* Max Advertising Interval 500.625ms (801*0.625ms) */
+			NULL); /* Set to NULL for undirected advertising */
 // Specific data
 typedef struct adv_mfg_data {
 	uint16_t   company_code;	    /* Company Identifier Code. */
@@ -158,7 +164,7 @@ static void threadSensorMeasurement(void)
             // Update the adv meas data
             adv_mfg_data.RangeMilliMeter = _vl53l1RangMesData.RangeMilliMeter;
             // Simulate a temperature sensor
-            floatTemperature.f = 21.5464;
+            floatTemperature.f = 21.5464; //0x41AC5F07
             memcpy(&adv_mfg_data.temperature,&floatTemperature.byte[0],sizeof(uint32_t));
             LOG_INF("Temp = %02x, %02x, %02x, %02x\n",floatTemperature.byte[3],floatTemperature.byte[2],floatTemperature.byte[1],floatTemperature.byte[0]);
             LOG_INF("Temp = %04x\n",adv_mfg_data.temperature);
@@ -176,7 +182,9 @@ static void thread1(void)
         return;
     }
     LOG_INF("Bluetooth initialized\n");
-    err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+   // err = bt_le_adv_start(BT_LE_ADV_NCONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
+   err = bt_le_adv_start(adv_param, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd)); // change advertisement parameters
+   
 	while (1) {
        LOG_INF("Hello, I am thread1\n");
 	   k_msleep(30000);
