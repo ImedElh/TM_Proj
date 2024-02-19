@@ -143,7 +143,7 @@ static void threadSensorMeasurement(void)
 	return;
    }
    	// Start vl53l1 sensor measurement timer
-	k_timer_start(&sensor_meas_timer, K_SECONDS(5),K_SECONDS(1 * VL53_MEAS_TIMING_SEC));
+	k_timer_start(&sensor_meas_timer, K_SECONDS(60),K_SECONDS(1 * VL53_MEAS_TIMING_SEC));
     
     init_vl53l1_sensor();
 
