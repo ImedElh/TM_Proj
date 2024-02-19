@@ -39,7 +39,8 @@ K_SEM_DEFINE(meas_monitor_sem, 1, 1);
 // vl53l1x integrated sensor in overlay file
 #define I2C0_NODE DT_NODELABEL(vl53l1x)
 // BLE macros
-#define COMPANY_ID_CODE            0x0059
+//#define COMPANY_ID_CODE            0x0059 // Nordics semiconductors
+#define COMPANY_ID_CODE             0xFFFF  // This value may be used in the internal and interoperability tests before a Company ID has been assigned. This value shall not be used in shipping end products.
 #define DEVICE_NAME CONFIG_BT_DEVICE_NAME
 #define DEVICE_NAME_LEN (sizeof(DEVICE_NAME)-1)
 
