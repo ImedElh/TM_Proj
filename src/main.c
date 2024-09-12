@@ -8,6 +8,8 @@
 #include <zephyr/logging/log.h>
 // GPIO driver header
 #include <zephyr/drivers/gpio.h>
+// sensor driver
+#include <zephyr/drivers/sensor.h>
 #include "remote.h"
 // Bonding headers
 //#include <zephyr/settings/settings.h>
@@ -18,6 +20,8 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 // Get led0 debugging led 
 #define DEBUG_LED DT_NODELABEL(led0)
+/*Get the device structure from the node label (custom pressure sensor driver) */
+const struct device * dev = DEVICE_DT_GET(DT_NODELABEL(bme688));
 static const struct gpio_dt_spec debugLed = GPIO_DT_SPEC_GET(DEBUG_LED, gpios);
 
 
@@ -157,6 +161,7 @@ static void update_timer_handler(struct k_timer *timer_id)
 /* main */
 void main(void)
 {
+	struct sensor_value temp_val, press_val, hum_val;
 	int err, ret;
     printk("Starting Bluetooth Peripheral LBS example\n");
 	LOG_INF("Hello World! %s\n", CONFIG_BOARD);
@@ -171,6 +176,11 @@ void main(void)
 	}
    // Active the debug led
    // gpio_pin_set_dt(&debugLed,1);
+   	err = device_is_ready(dev);
+	if (err) {
+		LOG_INF("Error: SPI device is not ready, err: %d", err);
+		return 0;
+	}
 
 #ifdef LOW_LEVEL_I2C // LOW level I2C transaction
    uint8_t reading[3] = {0} ;
@@ -203,6 +213,30 @@ void main(void)
 	getAcc0Data();
 	for (;;) {
 		LOG_INF("Hello, I am main\n");
-		k_sleep(K_MSEC(30000));
+		/* Continuously read out sensor data using the sensor API calls */
+		err = sensor_sample_fetch(dev);
+		if (err < 0) {
+			LOG_ERR("Could not fetch sample (%d)", err);
+			return 0;
+		}
+
+		if (sensor_channel_get(dev, SENSOR_CHAN_AMBIENT_TEMP, &temp_val)) {
+			LOG_ERR("Could not get sample");
+			return 0;
+		}
+		
+		if (sensor_channel_get(dev, SENSOR_CHAN_PRESS, &press_val)) {
+			LOG_ERR("Could not get sample");
+			return 0;
+		}
+	
+		if (sensor_channel_get(dev, SENSOR_CHAN_HUMIDITY, &hum_val)) {
+			LOG_ERR("Could not get sample");
+			return 0;
+		}
+
+		LOG_INF("Compensated temperature value: %d", temp_val.val1);
+		LOG_INF("Compensated pressure value: %d", press_val.val1);
+		LOG_INF("Compensated humidity value: %d", hum_val.val1);
 	}
 }
